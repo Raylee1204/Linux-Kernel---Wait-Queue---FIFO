@@ -101,3 +101,26 @@ mutex_lock(&condition_mutex);
 waiting_tasks[task_count++] = current; // 記錄 task_struct
 mutex_unlock(&condition_mutex);
 wait_event_interruptible(my_wait_queue, condition != 0); // 讓 Process 進入休眠
+```
+
+## 結論以及優化方向
+1. 實驗結論 (Conclusion)
+本實驗成功實作了一個基於 Linux Kernel Character Device 的 FIFO 等待隊列系統。透過對照核心日誌 (dmesg) 的紀錄，我們證實了核心模組 (Kernel Module) 能夠正確地將進入的 Process 依序存入陣列，並在喚醒階段嚴格遵守「先進先出 (First-In, First-Out)」的原則，成功達成實驗目標。
+
+2. 現象分析：為何 User Space 出現亂序？ (Analysis of Ordering Disorder)
+在實驗數據中，我們觀察到一個有趣的現象：雖然 User Space 程式透過 for 迴圈依序創建執行緒 (Thread 0, 1, 2...)，但在 Log 中卻出現了「Thread 2 比 Thread 1 先進入 Kernel」的亂序情況。
+
+這並非核心模組的 FIFO 機制失效，而是多執行緒環境下的正常現象，原因如下：
+
++ 排程器的非決定性 (Non-deterministic Scheduling)：pthread_create 僅將執行緒加入系統的 就緒隊列 (Ready Queue)，並非立即執行。Linux 排程器 (Scheduler) 根據 CPU 負載與演算法動態決定誰先獲得 CPU 時間片 (Time Slice)。
+
++ 競爭條件 (Race Condition)：雖然 Thread 1 先被創建，但若 Thread 2 獲得了較優的排程優先權或 Thread 1 發生了 Context Switch，Thread 2 便可能「後發先至」，搶先到達 Kernel 的 mutex_lock 入口。
+
++ 互斥鎖的搶佔行為：核心層的 Mutex 正確地保護了 Critical Section，但它保護的是「同時只有一人能寫入」，對於「誰先到達門口」則是忠實反映了 User Space 的競爭結果。
+
+3. 優化方向：強制同步機制 (Optimization Strategy)
+若在應用場景中需要嚴格保證「創建順序即為進入順序」，單純依賴 sleep() 延遲並非可靠的解決方案。建議引入 POSIX Semaphore (信號量) 技術來實作 「父子同步 (Parent-Child Synchronization)」 機制：
+
+實作原理：在主執行緒 (Main Thread) 創建子執行緒後，立即呼叫 sem_wait() 進入阻塞狀態；子執行緒則在即將呼叫 System Call 前，發送 sem_post() 信號通知主執行緒。
+
+預期效果：透過此「握手 (Handshake)」機制，確保前一個執行緒確認進入 Kernel 等待狀態後，主執行緒才被允許創建下一個執行緒，從而從物理上杜絕 User Space 的搶跑問題，實現絕對的依序進入。
