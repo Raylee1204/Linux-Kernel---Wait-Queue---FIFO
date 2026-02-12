@@ -43,7 +43,54 @@
 - **Store Order**: PID 2283 -> 2285 -> 2284 ...
 - **Wake Order**: PID 2283 -> 2285 -> 2284 ...
 
-![Kernel FIFO Log](./screenshots/dmesg_fifo_log.png)
+```c
+\\ user code result
+enter wait queue thread_id: 0
+enter wait queue thread_id: 2
+enter wait queue thread_id: 1
+enter wait queue thread_id: 4
+enter wait queue thread_id: 3
+enter wait queue thread_id: 7
+enter wait queue thread_id: 6
+enter wait queue thread_id: 9
+enter wait queue thread_id: 5
+enter wait queue thread_id: 8
+start clean queue ...
+exit wait queue thread_id: 0
+exit wait queue thread_id: 2
+exit wait queue thread_id: 1
+exit wait queue thread_id: 4
+exit wait queue thread_id: 3
+exit wait queue thread_id: 7
+exit wait queue thread_id: 6
+exit wait queue thread_id: 9
+exit wait queue thread_id: 5
+exit wait queue thread_id: 8
+
+
+\\kernel code result
+[   46.937032] store a process2283
+[   46.937143] store a process2285
+[   46.937147] store a process2284
+[   46.937222] store a process2287
+[   46.937288] store a process2286
+[   46.937291] store a process2290
+[   46.937346] store a process2289
+[   46.937366] store a process2292
+[   46.937420] store a process2288
+[   46.937519] store a process2291
+[   48.034318] [Wake Queue] Process 2283 (task: wait_queue) woken up, remaining tasks: 9
+[   48.137808] [Wake Queue] Process 2285 (task: wait_queue) woken up, remaining tasks: 8
+[   48.240913] [Wake Queue] Process 2284 (task: wait_queue) woken up, remaining tasks: 7
+[   48.343952] [Wake Queue] Process 2287 (task: wait_queue) woken up, remaining tasks: 6
+[   48.447477] [Wake Queue] Process 2286 (task: wait_queue) woken up, remaining tasks: 5
+[   48.550813] [Wake Queue] Process 2290 (task: wait_queue) woken up, remaining tasks: 4
+[   48.654006] [Wake Queue] Process 2289 (task: wait_queue) woken up, remaining tasks: 3
+[   48.757331] [Wake Queue] Process 2292 (task: wait_queue) woken up, remaining tasks: 2
+[   48.860805] [Wake Queue] Process 2288 (task: wait_queue) woken up, remaining tasks: 1
+[   48.964076] [Wake Queue] Process 2291 (task: wait_queue) woken up, remaining tasks: 0
+```
+
 
 ## 程式碼片段說明 (Code Highlights)
 
