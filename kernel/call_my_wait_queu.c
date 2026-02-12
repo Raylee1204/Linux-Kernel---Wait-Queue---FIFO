@@ -7,14 +7,21 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>  // 加入 udelay 的標頭檔
 
-// 宣告等待隊列
+// 1. 宣告一個標準的等待隊列頭 (Wait Queue Head)
+// 名字叫 my_wait_queue。這就像是一個「公車站牌」，大家都在這裡等。
 static DECLARE_WAIT_QUEUE_HEAD(my_wait_queue);
+
+// 2. 條件變數 (Condition Flag)
+// 0 代表紅燈 (要睡覺)，1 代表綠燈 (可以醒來)。
 static int condition = 0;
 
-// Mutex 保護共享變數
+// 3. 互斥鎖 (Mutex)
+// 用來保護下面的 waiting_tasks 陣列，避免多個執行緒同時寫入造成資料錯亂。
 static DEFINE_MUTEX(condition_mutex);
 
-// 追蹤等待中的執行緒
+// 4. 自定義的 FIFO 陣列 (關鍵！)
+// 不完全依賴 my_wait_queue 的內部鏈結串列，而是自己開一個陣列來存「人頭」。
+// task_struct 是 Linux Kernel 用來記錄每一個 Process/Thread 的結構體。
 static struct task_struct *waiting_tasks[1024];
 static int task_count = 0;
 
@@ -24,8 +31,9 @@ SYSCALL_DEFINE1(call_my_wait_queue, int, id)
 
     switch (id) {
     case 1:
-        // 加入等待隊列，進入休眠
+        // 1. 上鎖：進入 Critical Section，因為我們要操作全域陣列 waiting_tasks
         mutex_lock(&condition_mutex);
+		// 2. 設定條件為 0 (False)，確保等等 wait_event 會真的睡著
         condition = 0;
         // 儲存目前執行緒的 task_struct
         waiting_tasks[task_count++] = current;
